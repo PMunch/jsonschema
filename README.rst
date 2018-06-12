@@ -11,6 +11,7 @@ example of how to use the module. What follows is a commented explanation of
 how the DSL works.
 
 .. code:: nim
+
     jsonSchema: # The macro that parses the schema DSL
       # `CancelParams` here is the name we want to give this schema, it doesn't
       # verify against anything and is just use to refer to it in your code.
@@ -79,6 +80,7 @@ would generate. Note that you can also get the code generated with
 ``-d:jsonSchemaDebug``.
 
 .. code:: nim
+
     type
       WithArrayAndAny = distinct JsonNode
 

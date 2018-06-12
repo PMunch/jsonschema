@@ -6,7 +6,7 @@ require are present and that the values they store are of the correct type.
 Failure to do so will result in exceptions and make your program fragile.
 The ``jsonschema`` module implements a schema DSL that generates verifiers and
 creators for structured JSON data. The DSL is based around TypeScript, but is
-not 100% compatible (yet). At the end of the ``jsonschema.nim`` file are some
+not 100% compatible (yet). In the test file ``tests/test1.nim`` there are some
 example of how to use the module. What follows is a commented explanation of
 how the DSL works.
 

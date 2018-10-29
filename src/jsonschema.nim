@@ -125,7 +125,7 @@ macro jsonSchema*(pattern: untyped): untyped =
       `definitions` @ nnkStmtList
     ):
       let defs = definitions.matchDefinitions
-      types.add (name: $objectName, extends: nil, definitions: defs)
+      types.add (name: $objectName, extends: "", definitions: defs)
     of nnkCommand(
       `objectName` @ nnkIdent,
       nnkCommand(
@@ -317,7 +317,7 @@ macro jsonSchema*(pattern: untyped): untyped =
           if not `data`.hasKey(`fname`): return false
           if `check`: return false
 
-    if t.extends == nil:
+    if t.extends.len == 0:
       validationBodies[t.name] = quote do:
         var `fields` = `requiredFields`
         `validations`

@@ -148,10 +148,14 @@ macro jsonSchema*(pattern: untyped): untyped =
     traverse = newIdentNode("traverse")
     ret = newIdentNode("ret")
   for t in types:
-    let name = newIdentNode(t.name)
+    let
+      name = newIdentNode(t.name)
+      objname = newIdentNode(t.name & "Obj")
     creatorBodies[t.name] = newStmtList()
     typeDefinitions.add quote do:
-      type `name` = distinct JsonNode
+      type
+        `objname` = distinct JsonNodeObj
+        `name` = ref `objname`
       converter toJsonNode(input: `name`): JsonNode = input.JsonNode
 
     var
@@ -245,7 +249,7 @@ macro jsonSchema*(pattern: untyped): untyped =
               when `aname` is Option[`tkind`]:
                 if `aname`.isSome:
                   `ret`[`fname`] = newJArray()
-                  for `i` in `aname`.get:
+                  for `i` in `aname`.unsafeGet:
                     `ret`[`fname`].add `accs`
           else:
             creatorBodies[t.name].add quote do:
@@ -257,10 +261,10 @@ macro jsonSchema*(pattern: untyped): untyped =
           if field.optional:
             let accs = if isBaseType:
                 quote do:
-                  %`aname`.get
+                  %`aname`.unsafeGet
               else:
                 quote do:
-                  `aname`.get.JsonNode
+                  `aname`.unsafeGet.JsonNode
             creatorBodies[t.name].add quote do:
               when `aname` is Option[`tkind`]:
                 if `aname`.isSome:

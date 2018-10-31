@@ -140,6 +140,8 @@ macro jsonSchema*(pattern: untyped): untyped =
   var
     typeDefinitions = newStmtList()
     validationBodies = initOrderedTable[string, NimNode]()
+    validFields = initOrderedTable[string, NimNode]()
+    optionalFields = initOrderedTable[string, NimNode]()
     creatorBodies = initOrderedTable[string, NimNode]()
     createArgs  = initOrderedTable[string, NimNode]()
   let
@@ -156,11 +158,13 @@ macro jsonSchema*(pattern: untyped): untyped =
       type
         `objname` = distinct JsonNodeObj
         `name` = ref `objname`
-      converter toJsonNode(input: `name`): JsonNode = input.JsonNode
+      converter toJsonNode(input: `name`): JsonNode {.used.} = input.JsonNode
 
     var
       requiredFields = 0
       validations = newStmtList()
+    validFields[t.name] = nnkBracket.newTree()
+    optionalFields[t.name] = nnkBracket.newTree()
     createArgs[t.name] = nnkFormalParams.newTree(name)
     for field in t.definitions:
       let
@@ -168,6 +172,10 @@ macro jsonSchema*(pattern: untyped): untyped =
         aname = if field.mangle: newIdentNode(ManglePrefix & field.name) else: newIdentNode(field.name)
         cname = quote do:
           `data`[`fname`]
+      if field.optional:
+        optionalFields[t.name].add newLit(field.name)
+      else:
+        validFields[t.name].add newLit(field.name)
       var
         checks: seq[NimNode] = @[]
         argumentChoices: seq[NimNode] = @[]
@@ -334,6 +342,10 @@ macro jsonSchema*(pattern: untyped): untyped =
       for i in countdown(createArgs[t.extends].len - 1, 1):
         createArgs[t.name].insert(1, createArgs[t.extends][i])
       creatorBodies[t.name].insert(0, creatorBodies[t.extends])
+      for field in validFields[t.extends]:
+        validFields[t.name].add field
+      for field in optionalFields[t.extends]:
+        optionalFields[t.name].add field
 
   var forwardDecls = newStmtList()
   var validators = newStmtList()
@@ -341,19 +353,21 @@ macro jsonSchema*(pattern: untyped): untyped =
     let kindIdent = newIdentNode(kind)
     validators.add quote do:
       proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
-        `traverse` = true): bool =
+        `traverse` = true): bool {.used.} =
         if `data`.kind != JObject: return false
         `body`
         if `fields` != `data`.len: return false
         return true
     forwardDecls.add quote do:
       proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
-        `traverse` = true): bool
+        `traverse` = true): bool {.used.}
+  var accessors = newStmtList()
   var creators = newStmtList()
   for t in types:
     let
       creatorBody = creatorBodies[t.name]
       kindIdent = newIdentNode(t.name)
+      kindName = t.name
     var creatorArgs = createArgs[t.name]
     creatorArgs.insert(1, nnkIdentDefs.newTree(
       newIdentNode("schemaType"),
@@ -364,22 +378,69 @@ macro jsonSchema*(pattern: untyped): untyped =
       newEmptyNode()
     ))
     var createProc = quote do:
-      proc create() =
+      proc create() {.used.} =
         var `ret` = newJObject()
         `creatorBody`
         return `ret`.`kindIdent`
     createProc[3] = creatorArgs
     creators.add createProc
     var forwardCreateProc = quote do:
-      proc create()
+      proc create() {.used.}
     forwardCreateProc[3] = creatorArgs
     forwardDecls.add forwardCreateProc
 
+    let macroName = nnkAccQuoted.newTree(
+      newIdentNode("[]")
+    )
+    let
+      validFieldsList = validFields[t.name]
+      optionalFieldsList = optionalFields[t.name]
+      data = newIdentNode("data")
+      field = newIdentNode("field")
+    var accessorbody = nnkIfExpr.newTree()
+    if validFields[t.name].len != 0:
+      accessorbody.add nnkElifBranch.newTree(nnkInfix.newTree(newIdentNode("in"), field, validFieldsList), quote do:
+        return nnkStmtList.newTree(
+          nnkCall.newTree(
+            newIdentNode("unsafeAccess"),
+            `data`,
+            newLit(`field`)
+          )
+        )
+      )
+    if optionalFields[t.name].len != 0:
+      accessorbody.add nnkElifBranch.newTree(nnkInfix.newTree(newIdentNode("in"), field, optionalFieldsList), quote do:
+        return nnkStmtList.newTree(
+          nnkCall.newTree(
+            newIdentNode("unsafeOptAccess"),
+            `data`,
+            newLit(`field`)
+          )
+        )
+      )
+    accessorbody.add nnkElse.newTree(quote do:
+      raise newException(KeyError, "unable to access field \"" & `field` & "\" in data with schema " & `kindName`)
+    )
+    accessors.add quote do:
+      proc unsafeAccess(data: `kindIdent`, field: static[string]): JsonNode {.used.} =
+        JsonNode(data)[field]
+      proc unsafeOptAccess(data: `kindIdent`, field: static[string]): Option[JsonNode] {.used.} =
+        if JsonNode(data).hasKey(field):
+          some(JsonNode(data)[field])
+        else:
+          none(JsonNode)
+
+      macro `macroName`(`data`: `kindIdent`, `field`: static[string]): untyped {.used.} =
+        `accessorbody`
+
   result = quote do:
+    import macros
     `typeDefinitions`
     `forwardDecls`
     `validators`
     `creators`
+    `accessors`
+
   when defined(jsonSchemaDebug):
     echo result.repr
 

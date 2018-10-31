@@ -49,3 +49,13 @@ suite "basic tests":
     check wcp.isValid(WrapsCancelParams) == true
     wcp["cp"] = %*{"notcancelparams": true}
     check wcp.isValid(WrapsCancelParams, false) == true
+  test "create and access":
+    var wcp = create(WrapsCancelParams,
+      create(CancelParams, some(10), none(float)), "Hello"
+    ).JsonNode
+    # Not compile-time checked
+    check wcp["name"].getStr == "Hello"
+    # Compile-time checked access
+    check WrapsCancelParams(wcp)["name"].getStr == "Hello"
+    check CancelParams(WrapsCancelParams(wcp)["cp"])["something"] == none(JsonNode)
+    check CancelParams(WrapsCancelParams(wcp)["cp"])["id"].unsafeGet.getInt == 10

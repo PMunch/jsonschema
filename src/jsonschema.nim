@@ -158,7 +158,7 @@ macro jsonSchema*(pattern: untyped): untyped =
       type
         `objname` = distinct JsonNodeObj
         `name` = ref `objname`
-      converter toJsonNode(input: `name`): JsonNode {.used.} = input.JsonNode
+      #converter toJsonNode(input: `name`): JsonNode {.used.} = input.JsonNode
 
     var
       requiredFields = 0
@@ -200,8 +200,7 @@ macro jsonSchema*(pattern: untyped): untyped =
             ["int", "string", "float", "bool"]
         if kind.name != "nil":
           if kind.isArray:
-            if argumentChoices.len == 0:
-              argumentChoices.add tkind
+            argumentChoices.add tkind
           else:
             argumentChoices.add tkind
         else:

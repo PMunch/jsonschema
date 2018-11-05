@@ -1,5 +1,5 @@
 import unittest
-import json
+import packedjson
 import options
 import sequtils
 import "../src/jsonschema"

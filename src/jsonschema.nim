@@ -1,6 +1,6 @@
 import macros
 import ast_pattern_matching
-import json
+import packedjson
 import sequtils
 import options
 import strutils
@@ -156,8 +156,9 @@ macro jsonSchema*(pattern: untyped): untyped =
     creatorBodies[t.name] = newStmtList()
     typeDefinitions.add quote do:
       type
-        `objname` = distinct JsonNodeObj
-        `name` = ref `objname`
+        `name` = distinct JsonNode
+        #`objname` = distinct JsonNodeObj
+        #`name` = ref `objname`
       #converter toJsonNode(input: `name`): JsonNode {.used.} = input.JsonNode
 
     var
@@ -353,7 +354,7 @@ macro jsonSchema*(pattern: untyped): untyped =
     validators.add quote do:
       proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
         `traverse` = true): bool {.used.} =
-        if `data`.kind != JObject: return false
+        if packedjson.kind(`data`) != JObject: return false
         `body`
         if `fields` != `data`.len: return false
         return true

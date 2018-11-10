@@ -148,6 +148,7 @@ macro jsonSchema*(pattern: untyped): untyped =
     data = newIdentNode("data")
     fields = newIdentNode("fields")
     traverse = newIdentNode("traverse")
+    allowExtra = newIdentNode("allowExtra")
     ret = newIdentNode("ret")
   for t in types:
     let
@@ -228,10 +229,10 @@ macro jsonSchema*(pattern: untyped): untyped =
           if kind.isArray:
             checks.add quote do:
               `cname`.kind != JArray or
-                (`traverse` and not `cname`.allIt(it.isValid(`kindNode`)))
+                (`traverse` and not `cname`.allIt(it.isValid(`kindNode`, allowExtra = `allowExtra`)))
           else:
             checks.add quote do:
-              (`traverse` and not `cname`.isValid(`kindNode`))
+              (`traverse` and not `cname`.isValid(`kindNode`, allowExtra = `allowExtra`))
         if kind.name == "nil":
           if field.optional:
             creatorBodies[t.name].add quote do:
@@ -352,14 +353,14 @@ macro jsonSchema*(pattern: untyped): untyped =
     let kindIdent = newIdentNode(kind)
     validators.add quote do:
       proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
-        `traverse` = true): bool {.used.} =
+        `traverse` = true, `allowExtra` = false): bool {.used.} =
         if `data`.kind != JObject: return false
         `body`
-        if `fields` != `data`.len: return false
+        if not `allowExtra` and `fields` != `data`.len: return false
         return true
     forwardDecls.add quote do:
       proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
-        `traverse` = true): bool {.used.}
+        `traverse` = true, `allowExtra` = false): bool {.used.}
   var accessors = newStmtList()
   var creators = newStmtList()
   for t in types:

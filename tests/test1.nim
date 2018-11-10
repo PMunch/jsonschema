@@ -59,3 +59,12 @@ suite "basic tests":
     check WrapsCancelParams(wcp)["name"].getStr == "Hello"
     check CancelParams(WrapsCancelParams(wcp)["cp"])["something"] == none(JsonNode)
     check CancelParams(WrapsCancelParams(wcp)["cp"])["id"].unsafeGet.getInt == 10
+  test "allowExtra parameter":
+    var wcp = create(WrapsCancelParams,
+      create(CancelParams, some(10), none(float)), "Hello"
+    ).JsonNode
+    # Add an extra field and check that allowExtra allows it to pass
+    wcp["extraField"] = newJBool(true)
+    wcp["cp"]["extraField"] = newJBool(true)
+    check wcp.isValid(WrapsCancelParams) == false
+    check wcp.isValid(WrapsCancelParams, allowExtra = true) == true

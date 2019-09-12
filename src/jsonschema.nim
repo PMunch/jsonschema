@@ -349,17 +349,18 @@ macro jsonSchema*(pattern: untyped): untyped =
 
   var forwardDecls = newStmtList()
   var validators = newStmtList()
+  let schemaType = newIdentNode("schemaType")
   for kind, body in validationBodies.pairs:
     let kindIdent = newIdentNode(kind)
     validators.add quote do:
-      proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
+      proc isValid(`data`: JsonNode, `schemaType`: typedesc[`kindIdent`],
         `traverse` = true, `allowExtra` = false): bool {.used.} =
         if `data`.kind != JObject: return false
         `body`
         if not `allowExtra` and `fields` != `data`.len: return false
         return true
     forwardDecls.add quote do:
-      proc isValid(`data`: JsonNode, schemaType: typedesc[`kindIdent`],
+      proc isValid(`data`: JsonNode, `schemaType`: typedesc[`kindIdent`],
         `traverse` = true, `allowExtra` = false): bool {.used.}
   var accessors = newStmtList()
   var creators = newStmtList()
@@ -370,7 +371,7 @@ macro jsonSchema*(pattern: untyped): untyped =
       kindName = t.name
     var creatorArgs = createArgs[t.name]
     creatorArgs.insert(1, nnkIdentDefs.newTree(
-      newIdentNode("schemaType"),
+      schemaType,
       nnkBracketExpr.newTree(
         newIdentNode("typedesc"),
         kindIdent
@@ -472,15 +473,15 @@ when isMainModule:
   var wcp = create(WrapsCancelParams,
     create(CancelParams, some(10), none(float)), "Hello"
   )
-  echo wcp.isValid(WrapsCancelParams) == true
-  wcp["cp"] = %*{"notcancelparams": true}
-  echo wcp.isValid(WrapsCancelParams) == false
-  echo wcp.isValid(WrapsCancelParams, false) == true
+  echo wcp.JsonNode.isValid(WrapsCancelParams) == true
+  cast[var JsonNode](wcp["cp"]) = %*{"notcancelparams": true}
+  echo wcp.JsonNode.isValid(WrapsCancelParams) == false
+  echo wcp.JsonNode.isValid(WrapsCancelParams, false) == true
   var ecp = create(ExtendsCancelParams, some(10), some(5.3), "Hello")
-  echo ecp.isValid(ExtendsCancelParams) == true
+  echo ecp.JsonNode.isValid(ExtendsCancelParams) == true
   var war = create(WithArrayAndAny, some(@[
     create(CancelParams, some(10), some(1.0)),
     create(CancelParams, some("hello"), none(float))
   ]), 2.0, %*{"hello": "world"}, none(NilType))
-  echo war.isValid(WithArrayAndAny) == true
+  echo war.JsonNode.isValid(WithArrayAndAny) == true
 

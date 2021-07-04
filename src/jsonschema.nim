@@ -10,25 +10,61 @@ const ManglePrefix {.strdefine.}: string = "the"
 
 type NilType* = enum Nil
 
-proc extractKinds(node: NimNode): seq[tuple[name: string, isArray: bool]] =
+proc extractKinds(node: NimNode): seq[tuple[name: string, isArray: bool, isBase:bool, baseType:string]] =
+  var 
+    name: string
+    lower: string
+    isBaseType: bool
+    baseType: string
+    isArray: bool
+    needReturn: bool
   if node.kind == nnkIdent:
-    return @[(name: $node, isArray: false)]
+    name = $node
+    isArray = false
+    needReturn = true
+    lower = name.toLowerASCII
+    isBaseType = lower in ["int", "string", "float", "bool"]
+    baseType = if isBaseType: lower else: "" 
   elif node.kind == nnkInfix and node[0].kind == nnkIdent and $node[0] == "or":
+    needReturn = false
     result = node[2].extractKinds
     result.insert(node[1].extractKinds)
-  elif node.kind == nnkBracketExpr and node[0].kind == nnkIdent:
-    return @[(name: $node[0], isArray: true)]
+  elif node.kind == nnkBracketExpr and node.len == 1 and node[0].kind == nnkIdent:
+    name = $node[0]
+    isArray = true
+    needReturn = true
+    lower = name.toLowerASCII
+    isBaseType = lower in ["int", "string", "float", "bool"]
+    baseType = if isBaseType: lower else: "" 
+  elif node.kind == nnkCurlyExpr and node.len == 2 and node[0].kind == nnkIdent and node[1].kind == nnkIdent:
+    name = $node[0]
+    isArray = true
+    needReturn = true
+    isBaseType = true 
+    baseType = $node[1]
+  elif node.kind == nnkPragmaExpr and node[0].kind == nnkIdent and node[1][0].kind == nnkIdent:
+    name = $node[0]
+    isArray = false
+    needReturn = true
+    isBaseType = true 
+    baseType = $node[1][0]
   elif node.kind == nnkNilLit:
-    return @[(name: "nil", isArray: false)]
+    name = "nil"
+    isArray = false
+    needReturn = true
+    isBaseType = false
+    baseType = ""
   elif node.kind == nnkBracketExpr and node[0].kind == nnkNilLit:
     raise newException(AssertionError, "Array of nils not allowed")
   else:
     raise newException(AssertionError, "Unknown node kind: " & $node.kind)
+  if needReturn:
+    return @[(name: name, isArray: isArray, isBase: isBaseType, baseType: baseType )]
 
 proc matchDefinition(pattern: NimNode):
   tuple[
     name: string,
-    kinds: seq[tuple[name: string, isArray: bool]],
+    kinds: seq[tuple[name: string, isArray: bool,isBase:bool,baseType:string]],
     optional: bool,
     mangle: bool
   ] {.compileTime.} =
@@ -87,7 +123,9 @@ proc matchDefinitions(definitions: NimNode):
       kinds: seq[
         tuple[
           name: string,
-          isArray: bool
+          isArray: bool,
+          isBase:bool,
+          baseType:string
         ]
       ],
       optional: bool,
@@ -109,7 +147,9 @@ macro jsonSchema*(pattern: untyped): untyped =
           kinds: seq[
             tuple[
               name: string,
-              isArray: bool
+              isArray: bool,
+              isBase: bool,
+              baseType: string
             ]
           ],
           optional: bool,
@@ -197,8 +237,7 @@ macro jsonSchema*(pattern: untyped): untyped =
               )
             else:
               newIdentNode(kind.name)
-          isBaseType = kind.name.toLowerASCII in
-            ["int", "string", "float", "bool"]
+          isBaseType = kind.isBase #or kind.baseType.len > 0
         if kind.name != "nil":
           if kind.isArray:
             argumentChoices.add tkind
@@ -208,7 +247,7 @@ macro jsonSchema*(pattern: untyped): untyped =
           argumentChoices.add newIdentNode("NilType")
         if isBaseType:
           let
-            jkind = newIdentNode("J" & kind.name)
+            jkind = newIdentNode("J" & kind.baseType)
           if kind.isArray:
             checks.add quote do:
               `cname`.kind != JArray or `cname`.anyIt(it.kind != `jkind`)

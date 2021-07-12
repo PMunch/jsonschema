@@ -3,10 +3,10 @@ name: Test
 on:
   push:
     paths-ignore: 
-      - README.md
+      - README.rst
   pull_request:
     paths-ignore: 
-      - README.md
+      - README.rst
 
 jobs:
   test:

@@ -237,7 +237,7 @@ macro jsonSchema*(pattern: untyped): untyped =
               )
             else:
               newIdentNode(kind.name)
-          isBaseType = kind.isBase #or kind.baseType.len > 0
+          isBaseType = kind.isBase
         if kind.name != "nil":
           if kind.isArray:
             argumentChoices.add tkind

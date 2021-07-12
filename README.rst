@@ -1,4 +1,4 @@
-JSON schema validation
+JSON schema validation .. |Test| image:: https://github.com/PMunch/jsonschema/actions/workflows/action.yml/badge.svg
 ======================
 
 When working with JSON data in Nim you must ensure that all the keys you

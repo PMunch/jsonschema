@@ -1,12 +1,28 @@
 import sequtils
 import json
+import unittest
 import options
 import "../src/jsonschema"
 
-type E = enum
-  a,b,c
+type MarkupKind {.pure.} = enum
+  plaintext = 0
+  markdown = 1
+
+type CompletionItemKindEnum* {.pure.} = enum
+    Text = 1,
+    Method = 2,
+    Function = 3
+
 jsonSchema:
   A:
-    a:E{int} # set
+    a:CompletionItemKindEnum{int} # set
   B:
-    b:E{.int.} # specific base type
+    b:MarkupKind{.int.} # specific base type
+
+test "enum basic type annotation":
+  var b = create(B,MarkupKind.plaintext)
+  check b.JsonNode.isValid(B) == true
+
+test "enum basic type in seq annotation":
+  var a = create(A,@[CompletionItemKindEnum.Text,CompletionItemKindEnum.Method])
+  check a.JsonNode.isValid(A) == true
